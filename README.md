@@ -36,13 +36,13 @@ This sample explains how to create a VM with Managed Service Identity enabled.
 1. Clone the repository.
 
     ```
-    git clone https://github.com/Azure-Samples/resource-manager-python-resources-and-groups.git
+    git clone https://github.com/Azure-Samples/compute-python-msi-vm.git
     ```
 
 1. Install the dependencies using pip.
 
     ```
-    cd resource-manager-python-resources-and-groups
+    cd compute-python-msi-vm
     pip install -r requirements.txt
     ```
 
