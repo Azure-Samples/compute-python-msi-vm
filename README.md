@@ -6,7 +6,10 @@ author: lmazuel
 
 # Create a VM with MSI authentication enabled
 
-This sample explains how to create a VM with Managed Service Identity enabled.
+This sample explains how to create a VM with Managed Service Identity enabled. This sample covers the two types of MSI scenarios:
+
+- System Assigned Identity: the identity is created by ARM on VM creation
+- User Assigned Identity: the identity is created and managed by the user, and assigned during VM creation
 
 **On this page**
 
@@ -118,13 +121,43 @@ For details about creation of these components, you can refer to the generic sam
 - [Resource Group](https://github.com/Azure-Samples/resource-manager-python-resources-and-groups)
 - [Network and VM](https://github.com/Azure-Samples/virtual-machines-python-manage)
 
+<a id="create-user-assigned">
+### Create a User Assigned Identity
+
+> You do NOT require this step if you just want to use System Assigned Identity.
+
+Creating a User Assigned identity is simple:
+
+```python
+user_assigned_identity = msi_client.user_assigned_identities.create_or_update(
+    GROUP_NAME,
+    "my_msi_identity", # Any name, just a human readable ID
+    LOCATION
+)
+```
+
 <a id="create-vm"></a>
 ### Create a VM with MSI creation
 
-During the creation of the VM, only one attribute is necessary to ask Azure
-to assign a MSI ID to the VM.
+You can create a VM with both User Assigned and System Assigned at the same time, or only one of them.
+In System Assigned, only one attribute is necessary to ask Azure to create a MSI id.
+In User Assigned, you just need to provide the ID of the User Assigned identity you just created:
 
 ```python
+params_identity = {}
+if USER_ASSIGNED_IDENTITY and SYSTEM_ASSIGNED_IDENTITY:
+    params_identity['type'] = ResourceIdentityType.system_assigned_user_assigned # Enum value for both
+    params_identity['identity_ids'] = [
+        user_assigned_identity.id
+    ]
+elif USER_ASSIGNED_IDENTITY: # User Assigned only
+    params_identity['type'] = ResourceIdentityType.user_assigned
+    params_identity['identity_ids'] = [
+        user_assigned_identity.id
+    ]
+elif SYSTEM_ASSIGNED_IDENTITY: # System assigned only
+    params_identity['type'] = ResourceIdentityType.system_assigned
+
 params_create = {
     'location': LOCATION,
     'os_profile': get_os_profile(),
@@ -132,9 +165,7 @@ params_create = {
     'network_profile': get_network_profile(nic.id),
     'storage_profile': get_storage_profile(),
     # Activate MSI on that VM
-    'identity': {
-        'type': ResourceIdentityType.system_assigned
-    }
+    'identity': params_identity
 }
 
 vm_poller = compute_client.virtual_machines.create_or_update(
@@ -148,14 +179,19 @@ vm_result = vm_poller.result()
 <a id="role-assignment"></a>
 ### Role assignement to the MSI credentials
 
-By default, the MSI account created for that VM does not have
+By default, MSI identities does not have
 any permissions and will be unable to do anything.
 
 This section shows how to get the role id of the built-in role "Contributor"
-and to assign it with the scope "Resource Group" to the MSI account.
+and to assign it with the scope "Resource Group" to a MSI identity.
 
 ```python
-msi_principal_id = vm_result.identity.principal_id
+msi_accounts_to_assign = []
+if SYSTEM_ASSIGNED_IDENTITY:
+    msi_accounts_to_assign.append(vm_result.identity.principal_id)
+if USER_ASSIGNED_IDENTITY:
+    # Can also just add the ID user_assigned_identity.id
+    msi_accounts_to_assign += vm_result.identity_ids
 
 # Get "Contributor" built-in role as a RoleDefinition object
 role_name = 'Contributor'
@@ -167,14 +203,16 @@ assert len(roles) == 1
 contributor_role = roles[0]
 
 # Add RG scope to the MSI token
-role_assignment = authorization_client.role_assignments.create(
-    resource_group.id,
-    uuid.uuid4(), # Role assignment random name
-    {
-        'role_definition_id': contributor_role.id,
-        'principal_id': msi_principal_id
-    }
-)
+for msi_identity in msi_accounts_to_assign:
+
+    role_assignment = authorization_client.role_assignments.create(
+        resource_group.id,
+        uuid.uuid4(), # Role assignment random name
+        {
+            'role_definition_id': contributor_role.id,
+            'principal_id': msi_identity
+        }
+    )
 ```
 
 <a id="extension"></a>
@@ -182,6 +220,8 @@ role_assignment = authorization_client.role_assignments.create(
 
 A VM extension is needed to be able to get the token from inside the VM.
 This extension is just a simple localhost server on port 50342 that returns the token.
+
+> For User Assigned, extension needs to be at least version 1.0.7
 
 ```python
 ext_type_name = 'ManagedIdentityExtensionForLinux'
@@ -209,7 +249,7 @@ ext = ext_poller.result()
 You can now connect to the VM and use the MSI credentials directly, without
 passing credentials to the VM.
 
-More details on how to use MSI sith SDK can be found in the 
+More details on how to use MSI with SDK can be found in the 
 [MSI usage sample](https://github.com/Azure-Samples/resource-manager-python-manage-resources-with-msi)
 
 Once the Azure VM has been created, you can verify that MSI extension is running on this VM. Managed Service Identity extension will run on 
@@ -230,6 +270,6 @@ tcp        0      0 127.0.0.1:50342         0.0.0.0:*               LISTEN      
 ### Delete a resource group
 
 ```python
-delete_async_operation = client.resource_groups.delete('azure-sample-group')
+delete_async_operation = client.resource_groups.delete('azure-msi-sample-group')
 delete_async_operation.wait()
 ```
