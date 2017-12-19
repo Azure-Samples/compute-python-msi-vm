@@ -16,6 +16,7 @@ This sample explains how to create a VM with Managed Service Identity enabled. T
 - [Run this sample](#run)
 - [What is example.py doing?](#example)
     - [Preliminary operations](#preliminary-operations)
+    - [Create a User Assigned Identity](#create-user-assigned)
     - [Create a VM with MSI creation](#create-vm)
     - [Role assignement to the MSI credentials](#role-assignment)
     - [Install MSI extension](#extension)
@@ -121,7 +122,7 @@ For details about creation of these components, you can refer to the generic sam
 - [Resource Group](https://github.com/Azure-Samples/resource-manager-python-resources-and-groups)
 - [Network and VM](https://github.com/Azure-Samples/virtual-machines-python-manage)
 
-<a id="create-user-assigned">
+<a id="create-user-assigned"></a>
 ### Create a User Assigned Identity
 
 > You do NOT require this step if you just want to use System Assigned Identity.
@@ -131,7 +132,7 @@ Creating a User Assigned identity is simple:
 ```python
 user_assigned_identity = msi_client.user_assigned_identities.create_or_update(
     GROUP_NAME,
-    "my_msi_identity", # Any name, just a human readable ID
+    "myMsiIdentity", # Any name, just a human readable ID
     LOCATION
 )
 ```
@@ -190,8 +191,7 @@ msi_accounts_to_assign = []
 if SYSTEM_ASSIGNED_IDENTITY:
     msi_accounts_to_assign.append(vm_result.identity.principal_id)
 if USER_ASSIGNED_IDENTITY:
-    # Can also just add the ID user_assigned_identity.id
-    msi_accounts_to_assign += vm_result.identity_ids
+    msi_accounts_to_assign.append(user_assigned_identity.principal_id)
 
 # Get "Contributor" built-in role as a RoleDefinition object
 role_name = 'Contributor'
