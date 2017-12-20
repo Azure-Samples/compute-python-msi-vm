@@ -1,4 +1,6 @@
+import logging
 import os
+import time
 import uuid
 
 from azure.common.credentials import ServicePrincipalCredentials
@@ -10,10 +12,16 @@ from azure.mgmt.authorization import AuthorizationManagementClient
 
 from azure.mgmt.compute.models import ResourceIdentityType
 
+# If you wish to use User Assigned
+from azure.mgmt.msi import ManagedServiceIdentityClient
+
+# If you wish to debug
+# logging.basicConfig(level=logging.DEBUG)
+
 # Resource
 
-LOCATION = 'westus'
-GROUP_NAME = 'azure-msi-sample-group'
+LOCATION = 'westcentralus'
+GROUP_NAME = 'azure-msi-sample-group2'
 
 # Network
 
@@ -29,6 +37,8 @@ VM_NAME = 'azuretestmsi'
 ADMIN_LOGIN = 'Foo12'
 ADMIN_PASSWORD = 'BaR@123' + GROUP_NAME
 
+USER_ASSIGNED_IDENTITY = True # Switch this to false if you don't want to create a User Assigned Identity
+SYSTEM_ASSIGNED_IDENTITY = True # Switch this to false if you don't want to create a System Assigned Identity
 
 # Create a Linux VM with MSI enabled. The MSI token will have Contributor role within
 # the Resource Group of the VM.
@@ -69,6 +79,17 @@ def run_example():
     )
     print_item(resource_group)
 
+    if USER_ASSIGNED_IDENTITY:
+        # Create a User Assigned Identity if needed
+        print("\nCreate User Assigned Identity")
+        msi_client = ManagedServiceIdentityClient(credentials, subscription_id)
+        user_assigned_identity = msi_client.user_assigned_identities.create_or_update(
+            GROUP_NAME,
+            "myMsiIdentity", # Any name, just a human readable ID
+            LOCATION
+        )
+        print_item(user_assigned_identity)
+
     print("\nCreate Network")
     # Create Network components of the VM
     # This is not MSI related and is just required to create the VM
@@ -76,6 +97,20 @@ def run_example():
     public_ip = create_public_ip(network_client)
     nic = create_network_interface(network_client, subnet, public_ip)
     print_item(nic)
+
+    params_identity = {}
+    if USER_ASSIGNED_IDENTITY and SYSTEM_ASSIGNED_IDENTITY:
+        params_identity['type'] = ResourceIdentityType.system_assigned_user_assigned
+        params_identity['identity_ids'] = [
+            user_assigned_identity.id
+        ]
+    elif USER_ASSIGNED_IDENTITY: # User Assigned only
+        params_identity['type'] = ResourceIdentityType.user_assigned
+        params_identity['identity_ids'] = [
+            user_assigned_identity.id
+        ]
+    elif SYSTEM_ASSIGNED_IDENTITY: # System assigned only
+        params_identity['type'] = ResourceIdentityType.system_assigned
 
     # Create a VM MSI enabled
     params_create = {
@@ -85,9 +120,7 @@ def run_example():
         'network_profile': get_network_profile(nic.id),
         'storage_profile': get_storage_profile(),
         # Activate MSI on that VM
-        'identity': {
-            'type': ResourceIdentityType.system_assigned
-        }
+        'identity': params_identity
     }
 
     print("\nCreate VM")
@@ -105,14 +138,18 @@ def run_example():
         PUBLIC_IP_NAME
     )
 
-    # By default, the MSI account has no permissions
+    # By default, the MSI accounts have no permissions
     # Next part is assignment of permissions to the account
     # Example is Resource Group access as Contributor, but
     # you can any permissions you need.
 
-    print("\nAssign permissions to MSI account")
-    # Get the Principal id of that VM
-    msi_principal_id = vm_result.identity.principal_id
+    msi_accounts_to_assign = []
+    if SYSTEM_ASSIGNED_IDENTITY:
+        msi_accounts_to_assign.append(vm_result.identity.principal_id)
+    if USER_ASSIGNED_IDENTITY:
+        msi_accounts_to_assign.append(user_assigned_identity.principal_id)
+
+    print("\nAssign permissions to MSI identities")
 
     # Get "Contributor" built-in role as a RoleDefinition object
     role_name = 'Contributor'
@@ -123,16 +160,18 @@ def run_example():
     assert len(roles) == 1
     contributor_role = roles[0]
 
-    # Add RG scope to the MSI token
-    role_assignment = authorization_client.role_assignments.create(
-        resource_group.id,
-        uuid.uuid4(), # Role assignment random name
-        {
-            'role_definition_id': contributor_role.id,
-            'principal_id': msi_principal_id
-        }
-    )
-    print_item(role_assignment)
+    # Add RG scope to the MSI identities:
+    for msi_identity in msi_accounts_to_assign:
+
+        role_assignment = authorization_client.role_assignments.create(
+            resource_group.id,
+            uuid.uuid4(), # Role assignment random name
+            {
+                'role_definition_id': contributor_role.id,
+                'principal_id': msi_identity
+            }
+        )
+        print_item(role_assignment)
 
     # To be able to get the token from inside the VM, there is
     # a service on port 50342. This service is installed by an
