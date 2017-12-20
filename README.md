@@ -8,8 +8,8 @@ author: lmazuel
 
 This sample explains how to create a VM with Managed Service Identity enabled. This sample covers the two types of MSI scenarios:
 
-- System Assigned Identity: the identity is created by ARM on VM creation
-- User Assigned Identity: the identity is created and managed by the user, and assigned during VM creation
+- System Assigned Identity: the identity is created by ARM on VM creation/update
+- User Assigned Identity: the identity is created and managed by the user, and assigned during VM creation/update
 
 **On this page**
 
