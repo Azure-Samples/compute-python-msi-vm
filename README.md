@@ -221,7 +221,7 @@ for msi_identity in msi_accounts_to_assign:
 A VM extension is needed to be able to get the token from inside the VM.
 This extension is just a simple localhost server on port 50342 that returns the token.
 
-> For User Assigned, extension needs to be at least version 1.0.7
+> For User Assigned, extension needs to be at least version 1.0.0.7
 
 ```python
 ext_type_name = 'ManagedIdentityExtensionForLinux'
