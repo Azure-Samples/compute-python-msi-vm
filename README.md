@@ -127,9 +127,10 @@ For details about creation of these components, you can refer to the generic sam
 
 > You do NOT require this step if you just want to use System Assigned Identity.
 
-Creating a User Assigned identity is simple:
+Creating a User Assigned identity is simple (requires package `azure-mgmt-msi`):
 
 ```python
+msi_client = ManagedServiceIdentityClient(credentials, subscription_id)
 user_assigned_identity = msi_client.user_assigned_identities.create_or_update(
     GROUP_NAME,
     "myMsiIdentity", # Any name, just a human readable ID
