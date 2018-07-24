@@ -19,7 +19,6 @@ This sample explains how to create a VM with Managed Service Identity enabled. T
     - [Create a User Assigned Identity](#create-user-assigned)
     - [Create a VM with MSI creation](#create-vm)
     - [Role assignement to the MSI credentials](#role-assignment)
-    - [Install MSI extension](#extension)
     - [Usage](#usage)
     - [Delete a resource group](#delete-group)
 
@@ -59,7 +58,7 @@ or [the portal](https://azure.microsoft.com/documentation/articles/resource-grou
    "Owner" role enabled, or at least the "Microsoft.Authorization/*/write" permission.
    Learn more about [Built-in Role for Azure](https://docs.microsoft.com/azure/active-directory/role-based-access-built-in-roles)
 
-1. Export these environment variables into your current shell. 
+1. Export these environment variables into your current shell.
 
     ```
     export AZURE_TENANT_ID={your tenant id}
@@ -216,56 +215,16 @@ for msi_identity in msi_accounts_to_assign:
     )
 ```
 
-<a id="extension"></a>
-### Install MSI extension
-
-A VM extension is needed to be able to get the token from inside the VM.
-This extension is just a simple localhost server on port 50342 that returns the token.
-
-> For User Assigned, extension needs to be at least version 1.0.0.7
-
-```python
-ext_type_name = 'ManagedIdentityExtensionForLinux'
-ext_name = vm_result.name + ext_type_name
-params_create = {
-    'location': LOCATION,
-    'publisher': 'Microsoft.ManagedIdentity',
-    'virtual_machine_extension_type': ext_type_name,
-    'type_handler_version': '1.0',
-    'auto_upgrade_minor_version': True,
-    'settings': {'port': 50342}, # Default port. You should NOT change it.
-}
-ext_poller = compute_client.virtual_machine_extensions.create_or_update(
-    GROUP_NAME,
-    vm_result.name,
-    ext_name,
-    params_create,
-)
-ext = ext_poller.result()
-```
-
 <a id="usage"></a>
 ### Usage
 
 You can now connect to the VM and use the MSI credentials directly, without
 passing credentials to the VM.
 
-More details on how to use MSI with SDK can be found in the 
+More details on how to use MSI with SDK can be found in the
 [MSI usage sample](https://github.com/Azure-Samples/resource-manager-python-manage-resources-with-msi)
 
-Once the Azure VM has been created, you can verify that MSI extension is running on this VM. Managed Service Identity extension will run on 
-`localhost` and configured port, here `50342`.
-
-```
-notAdmin@msi-vm:~$ netstat -tlnp
-(Not all processes could be identified, non-owned process info
- will not be shown, you would have to be root to see it all.)
-Active Internet connections (only servers)
-Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
-tcp        0      0 127.0.0.1:50342         0.0.0.0:*               LISTEN      -               
-...            
-
-```
+Once the Azure VM has been created, you can verify the IMDS endpoint, which serves the token request, is working by making a HTTP get request to http://169.254.169.254/metadata/instance.
 
 <a id="delete-group"></a>
 ### Delete a resource group

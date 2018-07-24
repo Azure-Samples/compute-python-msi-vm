@@ -101,14 +101,14 @@ def run_example():
     params_identity = {}
     if USER_ASSIGNED_IDENTITY and SYSTEM_ASSIGNED_IDENTITY:
         params_identity['type'] = ResourceIdentityType.system_assigned_user_assigned
-        params_identity['identity_ids'] = [
-            user_assigned_identity.id
-        ]
+        params_identity['user_assigned_identities'] = {
+            user_assigned_identity.id: {}
+        }
     elif USER_ASSIGNED_IDENTITY: # User Assigned only
         params_identity['type'] = ResourceIdentityType.user_assigned
-        params_identity['identity_ids'] = [
-            user_assigned_identity.id
-        ]
+        params_identity['user_assigned_identities'] = {
+            user_assigned_identity.id: {}
+        }
     elif SYSTEM_ASSIGNED_IDENTITY: # System assigned only
         params_identity['type'] = ResourceIdentityType.system_assigned
 
@@ -172,31 +172,6 @@ def run_example():
             }
         )
         print_item(role_assignment)
-
-    # To be able to get the token from inside the VM, there is
-    # a service on port 50342. This service is installed by an
-    # extension
-
-    print("\nInstall MSI extension on VM")
-
-    ext_type_name = 'ManagedIdentityExtensionForLinux'
-    ext_name = vm_result.name + ext_type_name
-    params_create = {
-        'location': LOCATION,
-        'publisher': 'Microsoft.ManagedIdentity',
-        'virtual_machine_extension_type': ext_type_name,
-        'type_handler_version': '1.0',
-        'auto_upgrade_minor_version': True,
-        'settings': {'port': 50342}, # Default port. You should NOT change it.
-    }
-    ext_poller = compute_client.virtual_machine_extensions.create_or_update(
-        GROUP_NAME,
-        vm_result.name,
-        ext_name,
-        params_create,
-    )
-    ext = ext_poller.result()
-    print_item(ext)
 
     print("You can connect to the VM using:")
     print("ssh {}@{}".format(
