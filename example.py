@@ -37,8 +37,10 @@ VM_NAME = 'azuretestmsi'
 ADMIN_LOGIN = 'Foo12'
 ADMIN_PASSWORD = 'BaR@123' + GROUP_NAME
 
-USER_ASSIGNED_IDENTITY = True # Switch this to false if you don't want to create a User Assigned Identity
-SYSTEM_ASSIGNED_IDENTITY = True # Switch this to false if you don't want to create a System Assigned Identity
+# Switch this to false if you don't want to create a User Assigned Identity
+USER_ASSIGNED_IDENTITY = True
+# Switch this to false if you don't want to create a System Assigned Identity
+SYSTEM_ASSIGNED_IDENTITY = True
 
 # Create a Linux VM with MSI enabled. The MSI token will have Contributor role within
 # the Resource Group of the VM.
@@ -53,6 +55,8 @@ SYSTEM_ASSIGNED_IDENTITY = True # Switch this to false if you don't want to crea
 # AZURE_CLIENT_SECRET: with your Azure Active Directory Application Secret
 # AZURE_SUBSCRIPTION_ID: with your Azure Subscription Id
 #
+
+
 def run_example():
     """Resource Group management example."""
     #
@@ -60,7 +64,7 @@ def run_example():
     #
     subscription_id = os.environ.get(
         'AZURE_SUBSCRIPTION_ID',
-        '11111111-1111-1111-1111-111111111111') # your Azure Subscription Id
+        '11111111-1111-1111-1111-111111111111')  # your Azure Subscription Id
     credentials = ServicePrincipalCredentials(
         client_id=os.environ['AZURE_CLIENT_ID'],
         secret=os.environ['AZURE_CLIENT_SECRET'],
@@ -69,7 +73,8 @@ def run_example():
     resource_client = ResourceManagementClient(credentials, subscription_id)
     compute_client = ComputeManagementClient(credentials, subscription_id)
     network_client = NetworkManagementClient(credentials, subscription_id)
-    authorization_client = AuthorizationManagementClient(credentials, subscription_id)
+    authorization_client = AuthorizationManagementClient(
+        credentials, subscription_id)
 
     # Create Resource group
     print('\nCreate Resource Group')
@@ -85,7 +90,7 @@ def run_example():
         msi_client = ManagedServiceIdentityClient(credentials, subscription_id)
         user_assigned_identity = msi_client.user_assigned_identities.create_or_update(
             GROUP_NAME,
-            "myMsiIdentity", # Any name, just a human readable ID
+            "myMsiIdentity",  # Any name, just a human readable ID
             LOCATION
         )
         print_item(user_assigned_identity)
@@ -104,12 +109,12 @@ def run_example():
         params_identity['user_assigned_identities'] = {
             user_assigned_identity.id: {}
         }
-    elif USER_ASSIGNED_IDENTITY: # User Assigned only
+    elif USER_ASSIGNED_IDENTITY:  # User Assigned only
         params_identity['type'] = ResourceIdentityType.user_assigned
         params_identity['user_assigned_identities'] = {
             user_assigned_identity.id: {}
         }
-    elif SYSTEM_ASSIGNED_IDENTITY: # System assigned only
+    elif SYSTEM_ASSIGNED_IDENTITY:  # System assigned only
         params_identity['type'] = ResourceIdentityType.system_assigned
 
     # Create a VM MSI enabled
@@ -165,7 +170,7 @@ def run_example():
 
         role_assignment = authorization_client.role_assignments.create(
             resource_group.id,
-            uuid.uuid4(), # Role assignment random name
+            uuid.uuid4(),  # Role assignment random name
             {
                 'role_definition_id': contributor_role.id,
                 'principal_id': msi_identity
@@ -188,6 +193,7 @@ def run_example():
     delete_async_operation.wait()
     print("\nDeleted: {}".format(GROUP_NAME))
 
+
 def print_item(group):
     """Print a ResourceGroup instance."""
     print("\tName: {}".format(group.name))
@@ -195,6 +201,7 @@ def print_item(group):
     if hasattr(group, 'location'):
         print("\tLocation: {}".format(group.location))
     print_properties(getattr(group, 'properties', None))
+
 
 def print_properties(props):
     """Print a ResourceGroup propertyies instance."""
@@ -204,6 +211,7 @@ def print_properties(props):
     print("\n\n")
 
 ###### Network creation, not specific to MSI scenario ######
+
 
 def create_virtual_network(network_client):
     params_create = {
@@ -229,6 +237,7 @@ def create_virtual_network(network_client):
         SUBNET_NAME,
     )
 
+
 def create_public_ip(network_client):
     params_create = {
         'location': LOCATION,
@@ -240,6 +249,7 @@ def create_public_ip(network_client):
         params_create,
     )
     return pip_poller.result()
+
 
 def create_network_interface(network_client, subnet, public_ip):
     params_create = {
@@ -262,6 +272,7 @@ def create_network_interface(network_client, subnet, public_ip):
 
 ###### VM creation, not specific to MSI scenario ######
 
+
 def get_os_profile():
     return {
         'admin_username': ADMIN_LOGIN,
@@ -269,10 +280,12 @@ def get_os_profile():
         'computer_name': 'testmsi',
     }
 
+
 def get_hardware_profile():
     return {
         'vm_size': 'standard_a0'
     }
+
 
 def get_network_profile(network_interface_id):
     return {
@@ -280,6 +293,7 @@ def get_network_profile(network_interface_id):
             'id': network_interface_id,
         }],
     }
+
 
 def get_storage_profile():
     return {
@@ -290,6 +304,7 @@ def get_storage_profile():
             'version': 'latest'
         }
     }
+
 
 if __name__ == "__main__":
     run_example()
