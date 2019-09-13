@@ -1,7 +1,11 @@
 ---
-services: virtual-machines
-platforms: python
-author: lmazuel
+page_type: sample
+languages:
+- python
+products:
+- azure
+description: "This sample explains how to create a VM with Managed Service Identity enabled."
+urlFragment: compute-python-msi-vm
 ---
 
 # Create a VM with MSI authentication enabled
